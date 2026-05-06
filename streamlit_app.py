@@ -1,6 +1,7 @@
 import streamlit as st
 from fpdf import FPDF
 from datetime import datetime
+import os
 
 # --- FONCTION : GÉNÉRATION DU PDF ---
 def generer_quittance_pro(proprietaire, locataire, adresse, montant_loyer, periode):
@@ -62,10 +63,25 @@ def generer_quittance_pro(proprietaire, locataire, adresse, montant_loyer, perio
     pdf.ln(20)
     pdf.set_font("Helvetica", 'I', 10)
     date_jour = datetime.now().strftime("%d/%m/%Y")
-    pdf.cell(0, 10, f"Fait à le {date_jour}", ln=1, align='R')
+    pdf.cell(0, 10, f"Fait le {date_jour}", ln=1, align='R')
     pdf.ln(5)
+    
     pdf.set_font("Helvetica", 'B', 11)
-    pdf.cell(0, 10, "Signature du Propriétaire", ln=1, align='R')
+    pdf.cell(0, 10, "Signature du Propriétaire :", ln=1, align='R')
+    
+    # --- AJOUT DE LA SIGNATURE STYLISÉE ---
+    nom_fichier_police = "Caveat-VariableFont_wght.ttf" 
+    
+    if os.path.exists(nom_fichier_police):
+        # Ajout de la police manuscrite (si le fichier est présent dans le dossier)
+        pdf.add_font('Signature', '', nom_fichier_police, uni=True)
+        pdf.set_font('Signature', '', 24)
+    else:
+        # Solution de secours (si vous n'avez pas mis le fichier .ttf)
+        pdf.set_font("Helvetica", 'I', 16)
+        
+    # On imprime le nom du propriétaire avec la police choisie
+    pdf.cell(0, 10, proprietaire, ln=1, align='R')
 
     # --- MÉTHODE DE GÉNÉRATION EN MÉMOIRE (SANS ÉCRIRE SUR LE DISQUE) ---
     try:
