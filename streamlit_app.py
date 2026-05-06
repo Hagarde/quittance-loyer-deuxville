@@ -1,102 +1,109 @@
 import streamlit as st
 from fpdf import FPDF
-import smtplib
-from email.message import EmailMessage
-import os
+from datetime import datetime
 
-# --- FONCTION : GÉNÉRATION DU PDF ---
-def generer_quittance_pdf(nom_locataire, adresse, montant, date_mois):
+# --- FONCTION : GÉNÉRATION DU PDF AVEC DESIGN AMÉLIORÉ ---
+def generer_quittance_pro(proprietaire, locataire, adresse, montant_loyer, periode):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    # En-tête
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="QUITTANCE DE LOYER", ln=True, align='C')
+    # 1. Bordure décorative
+    pdf.rect(5, 5, 200, 287) # Cadre extérieur
+    pdf.rect(7, 7, 196, 283) # Cadre intérieur
+    
+    # 2. En-tête
+    pdf.set_font("Helvetica", 'B', 20)
+    pdf.set_text_color(44, 62, 80) # Bleu foncé professionnel
+    pdf.cell(0, 20, "QUITTANCE DE LOYER", ln=True, align='C')
+    pdf.ln(5)
+    
+    # 3. Informations Propriétaire & Locataire
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.set_text_color(0)
+    pdf.cell(95, 10, "PROPRIÉTAIRE :", ln=0)
+    pdf.cell(95, 10, "LOCATAIRE :", ln=1)
+    
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(95, 7, proprietaire, ln=0)
+    pdf.cell(95, 7, locataire, ln=1)
     pdf.ln(10)
     
-    # Corps du document
-    pdf.set_font("Arial", size=12)
-    texte = (
-        f"Je soussigné(e), Propriétaire, déclare avoir reçu de :\n"
-        f"M./Mme {nom_locataire}\n\n"
-        f"La somme de {montant} euros, au titre du loyer et des charges \n"
-        f"pour le mois de {date_mois}, concernant le logement situé au :\n"
-        f"{adresse}\n\n"
-        f"Cette quittance annule tous les reçus donnés précédemment pour \n"
-        f"le même mois.\n\n"
-        f"Fait pour valoir ce que de droit."
-    )
-    pdf.multi_cell(0, 10, txt=texte)
+    # 4. Objet de la quittance
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(0, 10, f" Période : {periode}", ln=1, fill=True)
+    pdf.set_font("Helvetica", size=11)
+    pdf.multi_cell(0, 10, f"Adresse du bien : {adresse}")
+    pdf.ln(5)
+
+    # 5. Texte légal
+    pdf.multi_cell(0, 8, f"Je soussigné(e) {proprietaire}, propriétaire du logement désigné ci-dessus, "
+                         f"déclare avoir reçu de la part du locataire M./Mme {locataire}, la somme suivante "
+                         f"au titre du paiement du loyer pour la période mentionnée.")
+    pdf.ln(10)
+
+    # 6. Tableau des montants (Le côté "Pro")
+    total = montant_loyer 
     
-    # Sauvegarde temporaire du fichier
-    nom_fichier = "quittance_temp.pdf"
-    pdf.output(nom_fichier)
-    return nom_fichier
-
-# --- FONCTION : ENVOI DE L'EMAIL ---
-def envoyer_email(email_destinataire, fichier_pdf, email_expediteur, mdp_app):
-    msg = EmailMessage()
-    msg['Subject'] = 'Votre quittance de loyer'
-    msg['From'] = email_expediteur
-    msg['To'] = email_destinataire
-    msg.set_content("Bonjour,\n\nVeuillez trouver ci-joint votre quittance de loyer pour ce mois.\n\nCordialement,")
-
-    # Pièce jointe
-    with open(fichier_pdf, 'rb') as f:
-        pdf_data = f.read()
+    pdf.set_font("Helvetica", 'B', 11)
+    # Entête tableau (Correction ici)
+    pdf.cell(80, 10, "Désignation", border=1, align='C')
+    pdf.cell(50, 10, "Montant (EUR)", border=1, align='C', ln=1) 
     
-    msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename='Quittance_de_loyer.pdf')
+    # Lignes (Correction ici également)
+    pdf.set_font("Helvetica", size=11)
+    pdf.cell(80, 10, " Loyer principal", border=1)
+    pdf.cell(50, 10, f"{montant_loyer:,.2f} EUR", border=1, align='R', ln=1)
+    
+    pdf.set_font("Helvetica", 'B', 12)
+    pdf.cell(80, 12, " TOTAL REÇU", border=1)
+    pdf.cell(50, 12, f"{total:,.2f} EUR", border=1, align='R', ln=1)
+    
+    # 7. Signature
+    pdf.ln(20)
+    pdf.set_font("Helvetica", 'I', 10)
+    date_jour = datetime.now().strftime("%d/%m/%Y")
+    pdf.cell(0, 10, f"Fait à Paris, le {date_jour}", ln=1, align='R')
+    pdf.ln(5)
+    pdf.set_font("Helvetica", 'B', 11)
+    pdf.cell(0, 10, "Signature du Propriétaire", ln=1, align='R')
 
-    # Connexion SMTP (Exemple configuré pour Gmail)
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-            smtp.login(email_expediteur, mdp_app)
-            smtp.send_message(msg)
-        return True
-    except Exception as e:
-        st.error(f"Erreur lors de l'envoi de l'e-mail : {e}")
-        return False
+    return bytes(pdf.output())
 
 # --- INTERFACE STREAMLIT ---
-st.title("📄 Générateur et Envoi de Quittance de Loyer")
+st.set_page_config(page_title="Générateur de Quittance", page_icon="📄")
 
-st.markdown("Remplissez les champs ci-dessous. Certains sont pré-remplis pour vous faire gagner du temps.")
+st.title("📄 Générateur de Quittance de Loyer")
+st.info("Remplissez les informations et téléchargez instantanément votre PDF professionnel.")
 
-# Utilisation d'un formulaire pour regrouper les actions
-with st.form("formulaire_quittance"):
-    st.subheader("Informations de la quittance")
-    
-    # Champs pré-remplis via le paramètre 'value'
-    nom_locataire = st.text_input("Nom du locataire", value="Jean Dupont")
-    adresse = st.text_area("Adresse du bien", value="10 Rue de la Paix, 75000 Paris")
-    montant = st.number_input("Montant (en €)", value=850.00, step=10.00)
-    date_mois = st.text_input("Mois concerné", value="Mai 2026")
-    
-    st.subheader("Informations d'envoi")
-    email_destinataire = st.text_input("Email du locataire", value="locataire@exemple.com")
-    
-    # Pour la sécurité, il vaut mieux stocker ces informations dans st.secrets en production
-    email_expediteur = st.text_input("Votre Email (Expéditeur Gmail)")
-    mdp_app = st.text_input("Votre Mot de Passe d'Application", type="password", help="Utilisez un mot de passe d'application, pas votre mot de passe classique.")
-    
-    bouton_soumettre = st.form_submit_button("Générer et Envoyer")
+col1, col2 = st.columns(2)
 
-# --- TRAITEMENT APRÈS SOUMISSION ---
-if bouton_soumettre:
-    if not email_expediteur or not mdp_app:
-        st.warning("Veuillez renseigner votre email et votre mot de passe d'application.")
-    else:
-        with st.spinner("Génération du PDF et envoi de l'e-mail en cours..."):
-            # 1. Générer le PDF
-            fichier_pdf = generer_quittance_pdf(nom_locataire, adresse, montant, date_mois)
-            
-            # 2. Envoyer l'e-mail
-            succes = envoyer_email(email_destinataire, fichier_pdf, email_expediteur, mdp_app)
-            
-            # 3. Nettoyer le fichier temporaire et afficher le résultat
-            if os.path.exists(fichier_pdf):
-                os.remove(fichier_pdf)
-                
-            if succes:
-                st.success(f"✅ La quittance a été générée et envoyée avec succès à {email_destinataire} !")
+with col1:
+    st.subheader("👤 Parties")
+    proprio = st.text_input("Votre Nom (Propriétaire)", value="M. Marc Morel")
+    locataire = st.text_input("Nom du Locataire", value="Mme Alice Bernard")
+
+with col2:
+    st.subheader("💰 Montants")
+    loyer = st.number_input("Loyer (€)", value=750.0, step=10.0)
+
+st.subheader("🏠 Détails du bien")
+adresse = st.text_area("Adresse complète", value="15 Rue de Rivoli, 75004 Paris")
+periode = st.text_input("Mois / Période concernée", value="Mai 2026")
+
+st.divider()
+
+# Génération du PDF en mémoire
+pdf_bytes = generer_quittance_pro(proprio, locataire, adresse, loyer, periode)
+
+# Bouton de téléchargement
+st.download_button(
+    label="📥 Télécharger la Quittance (PDF)",
+    data=pdf_bytes,
+    file_name=f"Quittance_{locataire.replace(' ', '_')}_{periode.replace(' ', '_')}.pdf",
+    mime="application/pdf",
+    use_container_width=True
+)
+
+st.caption("Le PDF est généré localement dans votre navigateur. Aucune donnée n'est envoyée par mail.")
